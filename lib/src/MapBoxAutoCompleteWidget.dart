@@ -52,6 +52,8 @@ class _MapBoxAutoCompleteWidgetState extends State<MapBoxAutoCompleteWidget> {
   final _searchFieldTextController = TextEditingController();
   final _searchFieldTextFocus = FocusNode();
 
+  bool hideResults = true;
+
   Predections? _placePredictions = Predections.empty();
 
   Future<void> _getPlaces(String input) async {
@@ -73,6 +75,7 @@ class _MapBoxAutoCompleteWidgetState extends State<MapBoxAutoCompleteWidget> {
 
       setState(() {
         _placePredictions = predictions;
+        hideResults = false;
       });
     } else {
       setState(() => _placePredictions = Predections.empty());
@@ -81,42 +84,71 @@ class _MapBoxAutoCompleteWidgetState extends State<MapBoxAutoCompleteWidget> {
 
   void _selectPlace(MapBoxPlace prediction) async {
     // Calls the `onSelected` callback
+    setState(() {
+      hideResults = true;
+    });
     widget.onSelect!(prediction);
     if (widget.closeOnSelect) Navigator.pop(context);
   }
 
   @override
+  void initState() {
+    super.initState();
+    _searchFieldTextFocus.requestFocus();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: CustomTextField(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CustomTextField(
           hintText: widget.hint,
           textController: _searchFieldTextController,
-          onChanged: (input) => _getPlaces(input),
+          // onChanged: (input) => _getPlaces(input),
           focusNode: _searchFieldTextFocus,
-          onFieldSubmitted: (value) => _searchFieldTextFocus.unfocus(),
-          // onChanged: (input) => print(input),
+          // onFieldSubmitted: (value) => _searchFieldTextFocus.unfocus(),
+          onFieldSubmitted: (input) => _getPlaces(input),
+          keyboardAction: TextInputAction.search,
         ),
-        actions: <Widget>[
+        if (!hideResults)
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              separatorBuilder: (cx, _) => Divider(),
+              padding: EdgeInsets.symmetric(horizontal: 15),
+              itemCount: _placePredictions!.features!.length,
+              itemBuilder: (ctx, i) {
+                MapBoxPlace _singlePlace = _placePredictions!.features![i];
+                return ListTile(
+                  title: Text(_singlePlace.text!),
+                  subtitle: Text(_singlePlace.placeName!),
+                  onTap: () => _selectPlace(_singlePlace),
+                );
+              },
+            ),
+          ),
+        if (!hideResults)
           IconButton(
-            icon: Icon(Icons.clear),
-            onPressed: () => _searchFieldTextController.clear(),
+            padding: EdgeInsets.zero,
+            constraints: BoxConstraints.expand(height: 40),
+            alignment: Alignment.bottomCenter,
+            onPressed: () {
+              print('hello');
+              setState(() {
+                hideResults = true;
+              });
+            },
+            icon: Container(
+              width: MediaQuery.of(context).size.width,
+              height: 45,
+              // color: Colors.white,
+              child: Icon(
+                Icons.close,
+              ),
+            ),
           )
-        ],
-      ),
-      body: ListView.separated(
-        separatorBuilder: (cx, _) => Divider(),
-        padding: EdgeInsets.symmetric(horizontal: 15),
-        itemCount: _placePredictions!.features!.length,
-        itemBuilder: (ctx, i) {
-          MapBoxPlace _singlePlace = _placePredictions!.features![i];
-          return ListTile(
-            title: Text(_singlePlace.text!),
-            subtitle: Text(_singlePlace.placeName!),
-            onTap: () => _selectPlace(_singlePlace),
-          );
-        },
-      ),
+      ],
     );
   }
 }
